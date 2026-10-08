@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coin Game</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --safe-top: max(8px, env(safe-area-inset-top));
+        --safe-right: max(8px, env(safe-area-inset-right));
+        --safe-bottom: max(8px, env(safe-area-inset-bottom));
+        --safe-left: max(8px, env(safe-area-inset-left));
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        background: #111;
+        color: white;
+        font-family: Arial, sans-serif;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      #authScreen {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 17, 17, 0.96);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        z-index: 9999;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      #authScreen h1 {
+        margin: 0 0 6px;
+        font-size: clamp(2rem, 8vw, 2.8rem);
+        text-align: center;
+      }
+
+      #authScreen input {
+        width: min(250px, 100%);
+        box-sizing: border-box;
+        padding: 10px;
+        font-size: 16px;
+      }
+
+      #authScreen button {
+        width: min(270px, 100%);
+        box-sizing: border-box;
+        padding: 10px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #authMessage {
+        min-height: 20px;
+      }
+#game {
+  position: absolute;
+  width: 2000px;
+  height: 1100px;
+  background: linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px);
+  background-size: 50px 50px;
+  transform-origin: 0 0;
+      }
+
+      .player {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        border: 3px solid white;
+        z-index: 5;
+      }
+
+      .player.trollGiant {
+        width: 72px;
+        height: 72px;
+      }
+
+      .player.trollTiny {
+        width: 10px;
+        height: 10px;
+      }
+
+      .player.trollSpin {
+        animation: trollSpin 0.35s linear infinite;
+      }
+
+      .player.trollFrozen {
+        box-shadow: 0 0 12px 5px #5de8ff;
+      }
+
+      @keyframes trollSpin {
+        to { rotate: 360deg; }
+      }
+
+      #trollOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 3000;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.82);
+        color: #ff3030;
+        font-size: clamp(28px, 8vw, 80px);
+        font-weight: bold;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      #arenaButton,
+      #achievementsButton {
+        position: fixed;
+        bottom: 75px;
+        z-index: 1000;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+
+      #arenaButton {
+        left: calc(50% - 150px);
+      }
+
+      #achievementsButton {
+        left: calc(50% + 5px);
+      }
+
+      #achievementPanel {
+        display: none;
+        position: fixed;
+        inset: 6%;
+        z-index: 2000;
+        overflow-y: auto;
+        padding: 20px;
+        background: #171717;
+        border: 2px solid #666;
+        border-radius: 12px;
+      }
+
+      #achievementPanel h2 {
+        margin-top: 0;
+      }
+
+      #achievementClose {
+        position: sticky;
+        float: right;
+        top: 0;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+
+      .achievementCategory {
+        margin: 18px 0 8px;
+        color: #ffd54f;
+      }
+
+      .achievementEntry {
+        margin: 6px 0;
+        padding: 10px;
+        background: #252525;
+        border-radius: 6px;
+      }
+
+      .achievementEntry.unlocked {
+        background: #1f3b2a;
+      }
+
+      .achievementProgress {
+        color: #bbb;
+        font-size: 13px;
+      }
+
+      .playerName {
+        position: absolute;
+        transform: translate(-50%, -100%);
+        margin-top: -10px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        white-space: nowrap;
+        text-shadow: 1px 1px 2px black, -1px -1px 2px black, 1px -1px 2px black, -1px 1px 2px black;
+        pointer-events: none;
+        z-index: 6;
+      }
+
+      .coin {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: yellow;
+        border: 2px solid orange;
+        transform: translate(-50%, -50%);
+        z-index: 4;
+      }
+
+      .coin.rare {
+        width: 30px;
+        height: 30px;
+        background: #8ef7ff;
+        border-color: #d7ffff;
+        box-shadow: 0 0 16px #00e5ff;
+        z-index: 7;
+      }
+
+      .worldMarker {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 2;
+        white-space: nowrap;
+        font-weight: bold;
+        text-shadow: 1px 1px 3px #000;
+      }
+
+      .captureMarker {
+        width: 42px;
+        height: 42px;
+        border: 3px solid #ffd54f;
+        border-radius: 50%;
+        background: rgba(255, 213, 79, 0.35);
+        box-shadow: 0 0 22px #ffc107;
+      }
+
+      .zoneMarker {
+        width: var(--zone-size);
+        height: var(--zone-size);
+        border: 3px dashed #fff;
+        border-radius: 50%;
+        opacity: 0.55;
+      }
+
+      .zoneMarker.damage,
+      .zoneMarker.danger { background: rgba(255, 30, 30, 0.26); border-color: #ff5252; }
+      .zoneMarker.healing { background: rgba(30, 255, 100, 0.2); border-color: #69f0ae; }
+      .zoneMarker.doubleCoins { background: rgba(255, 215, 0, 0.22); border-color: #ffd54f; }
+      .zoneMarker.teleport { background: rgba(170, 70, 255, 0.24); border-color: #ce93d8; }
+
+      .powerUpMarker {
+        width: 26px;
+        height: 26px;
+        border: 2px solid white;
+        border-radius: 50%;
+        background: #37474f;
+        font-size: 17px;
+      }
+
+      .powerUpMarker.speed { background: #1565c0; }
+      .powerUpMarker.damage { background: #c62828; }
+      .powerUpMarker.magnet { background: #8e24aa; }
+      .powerUpMarker.shield { background: #00838f; }
+      .powerUpMarker.heal { background: #2e7d32; }
+      .powerUpMarker.invisibility { background: #616161; }
+
+      .gateMarker {
+        width: 34px;
+        height: 34px;
+        border: 3px solid #80deea;
+        border-radius: 50%;
+        background: rgba(0, 188, 212, 0.35);
+        box-shadow: 0 0 16px #00bcd4;
+      }
+
+      .gateMarker.rare { border-color: #ffd54f; box-shadow: 0 0 18px #ffc107; }
+
+      .enemyMarker {
+        color: #ff8a80;
+        font-size: 20px;
+      }
+
+      .rareCoinMarker {
+        color: #8ef7ff;
+        font-size: 26px;
+        filter: drop-shadow(0 0 7px #00e5ff);
+      }
+
+      #worldHud {
+        position: fixed;
+        top: calc(78px + var(--safe-top));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 120;
+        width: min(420px, 78vw);
+        padding: 8px 12px;
+        border: 1px solid #888;
+        border-radius: 9px;
+        background: rgba(0, 0, 0, 0.82);
+        text-align: center;
+        font-size: 13px;
+      }
+
+      #worldHud:empty { display: none; }
+
+      #game.darkness {
+        filter: brightness(0.35);
+      }
+
+      #classChooser {
+        margin: 8px 0;
+      }
+
+      #classSelect {
+        max-width: 100%;
+        padding: 4px;
+      }
+
+      #classDescription {
+        display: block;
+        color: #ccc;
+        font-size: 11px;
+      }
+
+      #info {
+        position: fixed;
+        top: var(--safe-top);
+        left: var(--safe-left);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 12px;
+        border-radius: 10px;
+        z-index: 100;
+        max-width: min(58vw, 260px);
+      }
+
+      #score {
+        color: yellow;
+        font-size: 20px;
+      }
+
+      #leaderboard {
+        position: fixed;
+        top: var(--safe-top);
+        right: var(--safe-right);
+        width: min(250px, 42vw);
+        background: rgba(0, 0, 0, 0.8);
+        padding: 12px;
+        border-radius: 10px;
+        z-index: 100;
+      }
+
+      #leaderboardTitle {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .leaderboardEntry {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+      }
+
+      .leaderboardName {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 170px;
+      }
+
+      .leaderboardScore {
+        color: yellow;
+        font-weight: bold;
+      }
+
+      #chat {
+        position: fixed;
+        right: var(--safe-right);
+        bottom: calc(16px + var(--safe-bottom));
+        width: min(320px, calc(100vw - 32px));
+        height: min(400px, 48vh);
+        background: rgba(0, 0, 0, 0.8);
+        border-radius: 12px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      #chatTitle {
+        padding: 12px;
+        background: #222;
+        font-size: 18px;
+        font-weight: bold;
+      }
+
+      #chatMessages {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        word-wrap: break-word;
+      }
+
+      .chatMessage {
+        margin-bottom: 8px;
+      }
+
+      .chatName {
+        font-weight: bold;
+        color: #00bfff;
+      }
+
+      .chatInputArea {
+        display: flex;
+        padding: 8px;
+        background: #222;
+        gap: 5px;
+      }
+
+      #chatInput {
+        flex: 1;
+        min-width: 0;
+        padding: 9px;
+        border: none;
+        border-radius: 6px;
+        outline: none;
+      }
+
+      #chatSend {
+        padding: 9px 12px;
+        border: none;
+        border-radius: 6px;
+        background: #00bfff;
+        color: white;
+        cursor: pointer;
+      }
+
+      #chatSend:hover {
+        background: #0099cc;
+      }
+
+      #statsHud {
+        position: fixed;
+        left: var(--safe-left);
+        bottom: calc(16px + var(--safe-bottom));
+        background: rgba(0, 0, 0, 0.8);
+        padding: 12px 14px;
+        border-radius: 10px;
+        z-index: 100;
+        line-height: 1.7;
+      }
+
+      #shopButton {
+        position: fixed;
+        top: calc(20px + var(--safe-top));
+        right: var(--safe-right);
+        z-index: 1000;
+        padding: 10px 16px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #coinFlipButton {
+        position: fixed;
+        top: calc(20px + var(--safe-top));
+        right: calc(115px + var(--safe-right));
+        z-index: 1000;
+        padding: 10px 16px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #attackButton {
+        position: fixed;
+        bottom: calc(20px + var(--safe-bottom));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        padding: 12px 20px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      #coinFlipPanel {
+        position: fixed;
+        inset: 50% auto auto 50%;
+        transform: translate(-50%, -50%);
+        width: min(420px, calc(100vw - 24px));
+        background: rgba(14, 14, 18, 0.97);
+        border: 2px solid #666;
+        border-radius: 18px;
+        padding: 22px 20px 18px;
+        z-index: 2001;
+        display: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+      }
+
+      #coinFlipPanel.visible {
+        display: block;
+      }
+
+      #coinFlipHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+
+      #coinFlipHeader h2 {
+        margin: 0;
+      }
+
+      #coinFlipClose {
+        cursor: pointer;
+        background: transparent;
+        color: white;
+        border: 1px solid #888;
+        border-radius: 10px;
+        padding: 6px 10px;
+      }
+
+      .coinFlipChoices {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+      }
+
+      .coinFlipChoice {
+        min-width: 120px;
+        padding: 12px 18px;
+        border: 1px solid #888;
+        border-radius: 10px;
+        background: #1d1d1d;
+        color: white;
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .coinFlipChoice.selected {
+        background: #2d5a2d;
+        border-color: #8dff8d;
+      }
+
+      .coinFlipStage {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 170px;
+        margin-bottom: 10px;
+      }
+
+      .coinFlipDisk {
+        position: relative;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #f6d365, #fda085);
+        border: 6px solid #fef0b8;
+        box-shadow: inset 0 0 0 10px rgba(0, 0, 0, 0.15), 0 14px 28px rgba(0, 0, 0, 0.35);
+        transform-style: preserve-3d;
+      }
+
+      .coinFlipDisk::before,
+      .coinFlipDisk::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 38px;
+        font-weight: bold;
+      }
+
+      .coinFlipDisk::before {
+        content: "H";
+        color: #111;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .coinFlipDisk::after {
+        content: "T";
+        color: #111;
+        transform: rotateY(180deg);
+        background: rgba(0, 0, 0, 0.08);
+      }
+
+      .coinFlipDisk.heads {
+        transform: rotateY(0deg);
+      }
+
+      .coinFlipDisk.tails {
+        transform: rotateY(180deg);
+      }
+
+      #coinFlipResult {
+        min-height: 30px;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 12px;
+      }
+
+      .coinFlipInputRow {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .coinFlipInputRow label {
+        font-weight: bold;
+      }
+
+      #coinFlipBet {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px;
+        font-size: 16px;
+        border-radius: 8px;
+        border: 1px solid #888;
+      }
+
+      #coinFlipBalance {
+        font-size: 14px;
+        color: #ffd54f;
+        white-space: nowrap;
+      }
+
+      #coinFlipAction {
+        display: block;
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+#shopPanel {
+    display: none;
+
+    position: fixed;
+    top: 70px;
+    right: 20px;
+
+    width: 280px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+
+    background: #222;
+    border: 2px solid #555;
+    padding: 20px;
+
+    z-index: 1001;
+}
+
+#shopPanel h2 {
+    margin-top: 0;
+}
+
+#closeShop {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+
+    cursor: pointer;
+}
+
+.shopItem {
+    display: block;
+
+    width: 100%;
+    margin: 8px 0;
+    padding: 10px;
+
+    cursor: pointer;
+    text-align: left;
+}
+
+.shopCategory {
+    margin: 18px 0 6px;
+    color: #ffd54f;
+    border-bottom: 1px solid #555;
+    padding-bottom: 4px;
+}
+
+.shopItem small {
+    display: block;
+    margin-top: 3px;
+    color: #bbb;
+}
+
+#dailyBonusButton {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+}
+
+#abilityControls {
+    position: fixed;
+    left: 50%;
+    bottom: 76px;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    max-width: min(420px, 70vw);
+}
+
+#abilityControls.visible {
+    display: flex;
+}
+
+#abilityControls button {
+    min-height: 42px;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.dailyEventBanner {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1500;
+    width: min(520px, calc(100vw - 24px));
+    padding: 10px 14px;
+    border: 1px solid #f7cf55;
+    border-radius: 12px;
+    background: rgba(22, 19, 10, 0.96);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    text-align: center;
+}
+
+.dailyEventBanner[hidden] {
+    display: none;
+}
+
+#dailyEventTitle {
+    color: #ffdc69;
+    font-weight: bold;
+}
+
+#dailyEventDetails {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+}
+
+.playerName.goldenName {
+    color: #ffd700 !important;
+}
+
+#touchControls {
+    display: none;
+}
+
+@media (max-width: 1024px), (pointer: coarse) {
+    body {
+        min-height: 100dvh;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    #info {
+        top: max(8px, env(safe-area-inset-top));
+        left: max(8px, env(safe-area-inset-left));
+        max-width: 42vw;
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    #info br {
+        display: none;
+    }
+
+    #desktopHelp {
+        display: none;
+    }
+
+    #score {
+        display: block;
+        margin-top: 4px;
+        font-size: 16px;
+    }
+
+    #leaderboard {
+        top: max(8px, env(safe-area-inset-top));
+        right: max(8px, env(safe-area-inset-right));
+        width: 42vw;
+        max-height: 23dvh;
+        box-sizing: border-box;
+        padding: 8px;
+        overflow-y: auto;
+        font-size: 12px;
+    }
+
+    #leaderboardTitle {
+        margin-bottom: 4px;
+        font-size: 14px;
+    }
+
+    .leaderboardName {
+        max-width: 28vw;
+    }
+
+    #statsHud {
+        left: max(8px, env(safe-area-inset-left));
+        bottom: calc(148px + env(safe-area-inset-bottom));
+        max-width: 43vw;
+        box-sizing: border-box;
+        padding: 7px 9px;
+        font-size: 11px;
+        line-height: 1.45;
+    }
+
+    #chat {
+        right: max(8px, env(safe-area-inset-right));
+        bottom: calc(108px + env(safe-area-inset-bottom));
+        width: min(46vw, 320px);
+        height: min(26dvh, 300px);
+        min-height: 130px;
+    }
+
+    #chatTitle {
+        padding: 7px 9px;
+        font-size: 14px;
+    }
+
+    #chatMessages {
+        padding: 7px;
+        font-size: 12px;
+    }
+
+    .chatInputArea {
+        padding: 5px;
+    }
+
+    #chatInput {
+        padding: 8px;
+        font-size: 16px;
+    }
+
+    #chatSend {
+        padding: 8px;
+    }
+
+    #shopButton {
+        top: auto;
+        right: max(8px, env(safe-area-inset-right));
+        bottom: calc(44px + env(safe-area-inset-bottom));
+        padding: 9px 12px;
+        font-size: 14px;
+    }
+
+    #coinFlipButton {
+        top: auto;
+        right: calc(90px + var(--safe-right));
+        bottom: calc(44px + env(safe-area-inset-bottom));
+        padding: 9px 12px;
+        font-size: 14px;
+    }
+
+    #shopPanel {
+        top: max(8px, env(safe-area-inset-top));
+        right: max(8px, env(safe-area-inset-right));
+        width: min(320px, calc(100vw - 32px));
+        max-height: 82dvh;
+        box-sizing: border-box;
+        padding: 16px;
+    }
+
+    #attackButton {
+        right: max(12px, env(safe-area-inset-right));
+        bottom: max(12px, env(safe-area-inset-bottom));
+        left: auto;
+        transform: none;
+        padding: 13px 15px;
+    }
+
+    #abilityControls {
+        left: calc(max(12px, env(safe-area-inset-left)) + 144px);
+        bottom: max(12px, env(safe-area-inset-bottom));
+        width: 88px;
+        max-width: none;
+        transform: none;
+        display: grid;
+        grid-template-columns: repeat(2, 42px);
+        gap: 3px;
+    }
+
+    #abilityControls.visible {
+        display: grid;
+    }
+
+    #abilityControls button {
+        width: 42px;
+        min-height: 42px;
+        padding: 2px;
+        font-size: 0;
+    }
+
+    #abilityControls button::before {
+        font-size: 19px;
+    }
+
+    #abilityControls [data-ability="dash"]::before {
+        content: "⚡";
+    }
+
+    #abilityControls [data-ability="jump"]::before {
+        content: "↟";
+    }
+
+    #abilityControls [data-ability="teleport"]::before {
+        content: "✦";
+    }
+
+    #abilityControls [data-ability="blink"]::before {
+        content: "◉";
+    }
+
+    #abilityControls [data-ability="chaos"]::before {
+        content: "💀";
+    }
+
+    #arenaButton,
+    #achievementsButton {
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        padding: 8px;
+        font-size: 11px;
+    }
+
+    #arenaButton {
+        left: 50%;
+        transform: translateX(calc(-100% - 4px));
+    }
+
+    #achievementsButton {
+        left: 50%;
+        transform: translateX(4px);
+    }
+
+    #achievementPanel {
+        inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+        box-sizing: border-box;
+        padding: 14px;
+    }
+
+    #touchControls {
+        position: fixed;
+        left: max(12px, env(safe-area-inset-left));
+        bottom: max(12px, env(safe-area-inset-bottom));
+        z-index: 1000;
+        display: grid;
+        grid-template-columns: repeat(3, 44px);
+        grid-template-rows: repeat(2, 44px);
+        gap: 4px;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    #touchControls button {
+        border: 1px solid #888;
+        border-radius: 10px;
+        background: rgba(30, 30, 30, 0.88);
+        color: white;
+        font-size: 20px;
+        touch-action: none;
+    }
+
+    #touchControls button:active {
+        background: #555;
+    }
+
+    #touchUp {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    #touchLeft {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    #touchDown {
+        grid-column: 2;
+        grid-row: 2;
+    }
+
+    #touchRight {
+        grid-column: 3;
+        grid-row: 2;
+    }
+}
+
+@media (max-width: 640px) {
+    .dailyEventBanner {
+        top: calc(64px + env(safe-area-inset-top));
+        padding: 7px 9px;
+        font-size: 13px;
+    }
+
+    #dailyEventDetails {
+        font-size: 11px;
+    }
+
+    #info,
+    #leaderboard,
+    #statsHud,
+    #chat {
+        transform-origin: top left;
+    }
+
+    #info {
+        max-width: 46vw;
+        padding: 7px 8px;
+    }
+
+    #leaderboard {
+        width: 46vw;
+        padding: 7px 8px;
+    }
+
+    #statsHud {
+        left: max(8px, env(safe-area-inset-left));
+        bottom: calc(136px + env(safe-area-inset-bottom));
+        max-width: 46vw;
+    }
+
+    #chat {
+        width: min(48vw, 220px);
+        height: min(22dvh, 180px);
+        min-height: 110px;
+        bottom: calc(180px + env(safe-area-inset-bottom));
+    }
+
+    #shopButton,
+    #coinFlipButton,
+    #arenaButton,
+    #achievementsButton,
+    #attackButton {
+        font-size: 12px;
+    }
+
+    #coinFlipButton {
+        right: calc(80px + var(--safe-right));
+        bottom: calc(44px + env(safe-area-inset-bottom));
+    }
+
+    #arenaButton,
+    #achievementsButton {
+        bottom: calc(72px + env(safe-area-inset-bottom));
+    }
+
+    #attackButton {
+        right: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom));
+    }
+
+    #abilityControls {
+        left: calc(max(12px, env(safe-area-inset-left)) + 132px);
+        grid-template-columns: repeat(2, 38px);
+        width: 80px;
+    }
+
+    #abilityControls button {
+        width: 38px;
+        min-height: 38px;
+    }
+}
+
+@media (max-width: 380px) {
+    #chat {
+        width: 44vw;
+        height: 22dvh;
+    }
+
+    #attackButton {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        font-size: 0;
+    }
+
+    #attackButton::before {
+        content: "⚔️";
+        font-size: 20px;
+    }
+
+    #statsHud {
+        font-size: 10px;
+    }
+
+    #touchControls {
+        grid-template-columns: repeat(3, 40px);
+        grid-template-rows: repeat(2, 40px);
+    }
+
+    #authScreen {
+        padding: 18px 14px;
+    }
+
+    #authScreen input,
+    #authScreen button {
+        width: min(100%, 280px);
+    }
+}
+    </style>
+  </head>
+  <body>
+    <div id="info">
+      🎮 COIN GAME
+      <br /><br />
+      <span id="desktopHelp">
+        WASD = move
+        <br />
+        R = attack (buy a Sword or Crossbow first)
+        <br />
+        Q = dash · Space = jump · T = teleport · B = blink · C = chaos
+        <br />
+        Use /pvp to enable PvP
+      </span>
+      <br />
+      <span id="score">⭐ Score: 0</span>
+      <div id="classChooser">
+        Class:
+        <select id="classSelect" aria-label="Choose your class">
+          <option>Fighter</option>
+          <option>Runner</option>
+          <option>Tank</option>
+          <option>Collector</option>
+        </select>
+        <small id="classDescription">Fighter: +2 damage, 15% slower.</small>
+      </div>
+      <span id="bountyStat">🎯 Bounty: 0 · Wanted: 0</span>
+    </div>
+
+    <div id="dailyEventBanner" class="dailyEventBanner" role="status" aria-live="polite" hidden>
+      <span id="dailyEventTitle"></span>
+      <span id="dailyEventDetails"></span>
+    </div>
+
+    <div id="leaderboard">
+      <div id="leaderboardTitle">🏆 LEADERBOARD</div>
+      <div id="leaderboardPlayers"></div>
+    </div>
+
+    <div id="chat">
+      <div id="chatTitle">💬 CHAT</div>
+      <div id="chatMessages"></div>
+      <div class="chatInputArea">
+        <input id="chatInput" type="text" maxlength="200" placeholder="Write a message..." autocomplete="off" />
+        <button id="chatSend">Send</button>
+      </div>
+    </div>
+<button id="shopButton">🛒 Shop</button>
+<button id="coinFlipButton">🪙 Flip</button>
+
+<div id="coinFlipPanel" aria-modal="true" role="dialog">
+  <div id="coinFlipHeader">
+    <h2>🪙 Coin Flip</h2>
+    <button id="coinFlipClose" type="button" aria-label="Close coin flip">✕</button>
+  </div>
+
+  <div class="coinFlipChoices">
+    <button class="coinFlipChoice selected" type="button" data-side="heads">Heads</button>
+    <button class="coinFlipChoice" type="button" data-side="tails">Tails</button>
+  </div>
+
+  <div class="coinFlipStage">
+    <div id="coinFlipDisk" class="coinFlipDisk heads" aria-label="Coin flip result"></div>
+  </div>
+
+  <div class="coinFlipInputRow">
+    <label for="coinFlipBet">Bet</label>
+    <input id="coinFlipBet" type="number" min="1" step="1" value="10" />
+    <span id="coinFlipBalance">Balance: 0</span>
+  </div>
+
+  <div id="coinFlipResult">Pick a side and flip!</div>
+  <button id="coinFlipAction" type="button">Flip the coin</button>
+</div>
+
+<div id="shopPanel">
+    <button id="closeShop">✕</button>
+
+    <h2>🛒 Shop</h2>
+    <p>Coins: <span id="shopBalance">0</span> 🪙</p>
+    <p id="shopMessage" role="status" aria-live="polite"></p>
+
+    <h3 class="shopCategory">⚔️ Combat</h3>
+    <button class="shopItem" data-item="sword">Sword — 2,000 🪙<small>Unlocks melee attack.</small></button>
+    <button class="shopItem" data-item="heavyCrossbow">Heavy Crossbow — 5,000 🪙<small>Unlocks crossbow; slower, stronger shots.</small></button>
+    <button class="shopItem" data-item="criticalHit">Critical Hit — 3,000 🪙<small>20% chance to deal double damage.</small></button>
+    <button class="shopItem" data-item="armor">Armor — 5,000 🪙<small>Reduces incoming PvP damage by 20%.</small></button>
+    <button class="shopItem" data-item="regeneration">Regeneration — 7,500 🪙<small>Restores 1 HP every 5 seconds.</small></button>
+    <button class="shopItem" data-item="extraHp">Extra HP — 10,000 🪙<small>Permanently adds 5 max HP and heals 5.</small></button>
+    <button class="shopItem" data-item="lifesteal">Lifesteal — 15,000 🪙<small>Restore 1 HP after a PvP kill.</small></button>
+    <button class="shopItem" data-item="damage">Damage Upgrade — 50 🪙 (max 10)</button>
+    <button class="shopItem" data-item="hp">HP Upgrade — 100 🪙 (max 50)</button>
+    <button class="shopItem" data-item="speed">Speed Upgrade — 50 🪙 (max 10)</button>
+    <button class="shopItem" data-item="crossbow">Crossbow — 1,500 🪙<small>500 range; uses arrows.</small></button>
+    <button class="shopItem" data-item="arrows">5 Arrows — 15 🪙</button>
+
+    <h3 class="shopCategory">🏃 Movement</h3>
+    <button class="shopItem" data-item="dash">Dash — 2,500 🪙<small>Press Q for a burst of speed (4-second cooldown).</small></button>
+    <button class="shopItem" data-item="doubleJump">Double Jump — 7,500 🪙<small>Press Space twice to hop in your movement direction.</small></button>
+    <button class="shopItem" data-item="teleport">Teleport — 10,000 🪙<small>Press T to hop 160 units (15-second cooldown).</small></button>
+    <button class="shopItem" data-item="blink">Blink — 20,000 🪙<small>Press B to blink 300 units toward your pointer.</small></button>
+    <button class="shopItem" data-item="wallJump">Wall Jump — 15,000 🪙<small>Press Space near a world or arena edge to hop inward.</small></button>
+
+    <h3 class="shopCategory">🛡️ Defense</h3>
+    <button class="shopItem" data-item="secondChance">Second Chance — 25,000 🪙<small>Survive one lethal hit with 1 HP.</small></button>
+    <button class="shopItem" data-item="shieldUpgrade">Shield Upgrade — 20,000 🪙<small>Extends your current shield by 15 minutes and doubles future shield purchases.</small></button>
+    <button class="shopItem" data-item="damageResistance">Damage Resistance — 30,000 🪙<small>Reduces incoming damage by a further 10%.</small></button>
+    <button class="shopItem" data-item="emergencyHeal">Emergency Heal — 12,500 🪙<small>Heals when you fall to 25% HP; 60-second cooldown.</small></button>
+    <button class="shopItem" data-item="shield">Shield — 15,000 🪙<small>Blocks PvP damage for 15 online minutes (30 with Shield Upgrade).</small></button>
+
+    <h3 class="shopCategory">💰 Economy</h3>
+    <button class="shopItem" data-item="coinMultiplierX2">Coin Multiplier x2 — 25,000 🪙</button>
+    <button class="shopItem" data-item="coinMultiplierX3">Coin Multiplier x3 — 100,000 🪙<small>Replaces x2 if already owned.</small></button>
+    <button class="shopItem" data-item="coinMagnet">Coin Magnet — 5,000 🪙<small>Collect coins from farther away.</small></button>
+    <button class="shopItem" data-item="luckyCoins">Lucky Coins — 15,000 🪙<small>20% chance for one bonus coin per pickup.</small></button>
+    <button class="shopItem" data-item="dailyBonus">Daily Bonus — 10,000 🪙<small>Unlocks a once-daily 500-coin claim.</small></button>
+    <button id="dailyBonusButton" type="button" disabled>🎁 Claim Daily Bonus</button>
+
+    <h3 class="shopCategory">😈 More Chaos</h3>
+    <button class="shopItem" data-item="trollCooldownUpgrade">Troll Cooldown Upgrade — 20,000 🪙<small>Reduces Troll Command cooldown.</small></button>
+    <button class="shopItem" data-item="trollRangeUpgrade">Troll Range Upgrade — 15,000 🪙<small>Extends Troll Command range.</small></button>
+    <button class="shopItem" data-item="randomEventPass">Random Event Pass — 50,000 🪙<small>Triggers a random bonus event every 5 minutes while collecting coins.</small></button>
+    <button class="shopItem" data-item="chaosMode">Chaos Mode — 250,000 🪙<small>Press C for 8 seconds of 50% more damage and speed (60-second cooldown).</small></button>
+    <button class="shopItem" data-item="trollcmds">Troll Commands — 100,000 🪙</button>
+
+    <h3 class="shopCategory">👑 Super Expensive</h3>
+    <button class="shopItem" data-item="goldenName">Golden Name — 100,000 🪙</button>
+    <button class="shopItem" data-item="vipTag">VIP Tag — 250,000 🪙</button>
+    <button class="shopItem" data-item="respawnToken">Respawn Token — 50,000 🪙<small>One use: protects your coins from the 10% death penalty.</small></button>
+    <button class="shopItem" data-item="secondLife">Second Life — 500,000 🪙<small>One extra full-health respawn.</small></button>
+    <button class="shopItem" data-item="theButton">THE BUTTON — 1,000,000 🪙<small>Nobody knows what it does. One time only.</small></button>
+</div>
+<button id="arenaButton">🏟️ Join Arena (0 queued)</button>
+<button id="achievementsButton">🏆 Achievements</button>
+<div id="achievementPanel" role="dialog" aria-modal="true" aria-labelledby="achievementTitle">
+    <button id="achievementClose">Close</button>
+    <h2 id="achievementTitle">🏆 Achievements</h2>
+    <p id="achievementSummary">Loading achievements...</p>
+    <div id="achievementList"></div>
+</div>
+<button id="attackButton">⚔️ Attack (R)</button>
+<div id="abilityControls" role="group" aria-label="Purchased abilities">
+    <button type="button" data-ability="dash" hidden>Dash (Q)</button>
+    <button type="button" data-ability="jump" hidden>Jump (Space)</button>
+    <button type="button" data-ability="teleport" hidden>Teleport (T)</button>
+    <button type="button" data-ability="blink" hidden>Blink (B)</button>
+    <button type="button" data-ability="chaos" hidden>Chaos (C)</button>
+</div>
+<div id="touchControls" role="group" aria-label="Movement controls">
+    <button id="touchUp" type="button" data-direction="w" aria-label="Move up">▲</button>
+    <button id="touchLeft" type="button" data-direction="a" aria-label="Move left">◀</button>
+    <button id="touchDown" type="button" data-direction="s" aria-label="Move down">▼</button>
+    <button id="touchRight" type="button" data-direction="d" aria-label="Move right">▶</button>
+</div>
+<div id="statsHud">
+    ⚔️ Damage: <span id="damageStat">1</span><br>
+    ❤️ HP: <span id="hpStat">10/10</span><br>
+    🏃 Speed: <span id="speedStat">5</span><br>
+    🏹 Crossbow: <span id="crossbowStat">❌</span><br>
+    🛡️ Shield: <span id="shieldStat">None</span><br>
+    🏹 Arrows: <span id="arrowsStat">0</span>
+</div>
+
+<div id="worldHud" role="status" aria-live="polite"></div>
+<div id="game"></div>
+<div id="trollOverlay" role="alert" aria-live="assertive"></div>
+
+    <div id="authScreen">
+      <h1>🎮 Online Game</h1>
+      <input id="usernameInput" placeholder="Username" maxlength="16" />
+      <input id="passwordInput" type="password" placeholder="Password" />
+      <button id="loginButton">Log in</button>
+      <button id="registerButton">Create account</button>
+      <p id="authMessage"></p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const playerId = window.name || (window.name = `player-${crypto.randomUUID()}`);
+
+      let socket = null;
+      const game = document.getElementById("game");
+      const scoreText = document.getElementById("score");
+      const dailyEventBanner = document.getElementById("dailyEventBanner");
+      const dailyEventTitle = document.getElementById("dailyEventTitle");
+      const dailyEventDetails = document.getElementById("dailyEventDetails");
+      const damageStat = document.getElementById("damageStat");
+      const hpStat = document.getElementById("hpStat");
+      const speedStat = document.getElementById("speedStat");
+      const bountyStat = document.getElementById("bountyStat");
+      const classSelect = document.getElementById("classSelect");
+      const classDescription = document.getElementById("classDescription");
+      const worldHud = document.getElementById("worldHud");
+      const crossbowStat = document.getElementById("crossbowStat");
+      const shieldStat = document.getElementById("shieldStat");
+      const arrowsStat = document.getElementById("arrowsStat");
+      const trollOverlay = document.getElementById("trollOverlay");
+      const leaderboard = document.getElementById("leaderboardPlayers");
+      const chatMessages = document.getElementById("chatMessages");
+      const chatInput = document.getElementById("chatInput");
+      const chatSend = document.getElementById("chatSend");
+      const authScreen = document.getElementById("authScreen");
+      const usernameInput = document.getElementById("usernameInput");
+      const passwordInput = document.getElementById("passwordInput");
+      const loginButton = document.getElementById("loginButton");
+      const registerButton = document.getElementById("registerButton");
+      const attackButton = document.getElementById("attackButton");
+      const abilityControls = document.getElementById("abilityControls");
+      const abilityButtons = document.querySelectorAll("#abilityControls [data-ability]");
+      const dailyBonusButton = document.getElementById("dailyBonusButton");
+      const authMessage = document.getElementById("authMessage");
+      const keys = {};
+      let lastMovementDirection = { x: 0, y: -1 };
+      let pointerAimDirection = { x: 0, y: 0 };
+      let dailyEventCountdown = null;
+      const playerElements = new Map();
+      const worldElements = new Map();
+      const playerNameDecorations = new Map();
+      const achievementProgressElements = new Map();
+      let latestPlayers = {};
+      let activeWorldState = null;
+      let leaderboardState = "";
+      const trollEffectTimers = new Map();
+      const trollCommandsButton = document.querySelector('[data-item="trollcmds"]');
+      const arenaButton = document.getElementById("arenaButton");
+      const achievementsButton = document.getElementById("achievementsButton");
+      const achievementPanel = document.getElementById("achievementPanel");
+      const achievementList = document.getElementById("achievementList");
+      const achievementSummary = document.getElementById("achievementSummary");
+      const achievementClose = document.getElementById("achievementClose");
+      let achievements = [];
+
+      function attack() {
+        if (socket && socket.connected) {
+          socket.emit("attack");
+        }
+      }
+
+      function setWorldMarker(key, className, x, y, label, title) {
+        let element = worldElements.get(key);
+        if (!element) {
+          element = document.createElement("div");
+          game.appendChild(element);
+          worldElements.set(key, element);
+        }
+        element.className = `worldMarker ${className}`;
+        element.style.left = `${x}px`;
+        element.style.top = `${y}px`;
+        element.textContent = label;
+        element.title = title;
+      }
+
+      function renderWorldState(state) {
+        activeWorldState = state;
+        if (latestPlayers[playerId]) updatePlayerStats(latestPlayers[playerId]);
+        const visibleMarkers = new Set();
+        const addMarker = (...args) => {
+          visibleMarkers.add(args[0]);
+          setWorldMarker(...args);
+        };
+        const capture = state.capturePoint;
+        addMarker("capture", "captureMarker", capture.x, capture.y, "🏴", "Capture point: hold it to earn coins.");
+
+        if (state.zone) {
+          const zoneLabels = {
+            damage: "⚡ Damage Zone",
+            healing: "💚 Healing Zone",
+            doubleCoins: "🪙 Double Coin Zone",
+            teleport: "🌀 Teleport Zone",
+            danger: "☠️ Danger Zone",
+          };
+          addMarker(
+            "zone",
+            `zoneMarker ${state.zone.type}`,
+            state.zone.x,
+            state.zone.y,
+            zoneLabels[state.zone.type],
+            zoneLabels[state.zone.type]
+          );
+          const zoneElement = worldElements.get("zone");
+          zoneElement.style.setProperty("--zone-size", `${state.zone.radius * 2}px`);
+        }
+
+        const powerUpIcons = {
+          speed: "⚡",
+          damage: "💥",
+          magnet: "🧲",
+          shield: "🛡️",
+          heal: "💚",
+          invisibility: "👻",
+        };
+        for (const powerUp of state.powerUps) {
+          addMarker(
+            `power-${powerUp.id}`,
+            `powerUpMarker ${powerUp.type}`,
+            powerUp.x,
+            powerUp.y,
+            powerUpIcons[powerUp.type],
+            `${powerUp.type} power-up`
+          );
+        }
+        for (const rareCoin of state.rareCoins) {
+          addMarker(`rare-${rareCoin.id}`, "rareCoinMarker", rareCoin.x, rareCoin.y, "💎", "Rare Coin — 50 coins");
+        }
+        for (const gate of state.gates) {
+          addMarker(
+            gate.id,
+            `gateMarker${gate.rare ? " rare" : ""}`,
+            gate.x,
+            gate.y,
+            "🌀",
+            gate.rare ? "Rare gate — teleports and awards 25 coins" : "Teleport gate"
+          );
+        }
+        for (const enemy of state.enemies) {
+          addMarker(
+            `enemy-${enemy.id}`,
+            "enemyMarker",
+            enemy.x,
+            enemy.y,
+            enemy.name === "Brute" ? "👹" : "🧟",
+            `${enemy.name}: ${enemy.hp}/${enemy.maxHp} HP · reward ${enemy.reward} coins`
+          );
+        }
+        for (const [key, element] of worldElements) {
+          if (!visibleMarkers.has(key)) {
+            element.remove();
+            worldElements.delete(key);
+          }
+        }
+
+        game.classList.toggle("darkness", state.weather.type === "darkness");
+        const weatherLabels = {
+          coinRain: "Coin Rain",
+          speedStorm: "Speed Storm",
+          darkness: "Darkness",
+          chaosStorm: "Chaos Storm",
+        };
+        const parts = [];
+        if (state.weather.type) {
+          parts.push(`🌧️ ${weatherLabels[state.weather.type]} · ${Math.max(0, Math.ceil((state.weather.until - Date.now()) / 1000))}s`);
+        }
+        if (capture.ownerId) {
+          const holder = latestPlayers[capture.ownerId]?.name || "A player";
+          parts.push(`🏴 ${holder} holds the point · ${Math.floor(capture.progressMs / 1000)}s · +5 coins / 5s`);
+        } else {
+          parts.push("🏴 Capture point · hold for +5 coins every 5s");
+        }
+        const currentPlayer = latestPlayers[playerId];
+        const activeEffects = Object.entries(currentPlayer?.powerUpUntil || {})
+          .filter(([, until]) => until > Date.now())
+          .map(([type, until]) => `${type} ${Math.ceil((until - Date.now()) / 1000)}s`);
+        if (activeEffects.length) parts.push(`⚡ ${activeEffects.join(", ")}`);
+        worldHud.textContent = parts.join(" · ");
+      }
+
+      function activateAbility(ability) {
+        if (!socket || !socket.connected) {
+          return;
+        }
+
+        let x = lastMovementDirection.x;
+        let y = lastMovementDirection.y;
+        if (ability === "blink" && Math.hypot(pointerAimDirection.x, pointerAimDirection.y) > 12) {
+          x = pointerAimDirection.x;
+          y = pointerAimDirection.y;
+        } else {
+          const keyX = Number(Boolean(keys.d)) - Number(Boolean(keys.a));
+          const keyY = Number(Boolean(keys.s)) - Number(Boolean(keys.w));
+          if (keyX || keyY) {
+            x = keyX;
+            y = keyY;
+          }
+        }
+        socket.emit("ability", { ability, x, y });
+      }
+
+      function updateCamera(x, y) {
+        const cameraX = window.innerWidth / 2 - x;
+        const cameraY = window.innerHeight / 2 - y;
+        game.style.transform = `translate(${cameraX}px, ${cameraY}px)`;
+      }
+
+      function formatShieldTime(milliseconds) {
+        const totalSeconds = Math.ceil(milliseconds / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${String(seconds).padStart(2, "0")}`;
+      }
+
+      function updatePlayerStats(player) {
+        const classStats = {
+          damage: player.damage,
+          speed: player.speed,
+          maxHp: player.maxHp,
+        };
+        if (player.gameClass === "Fighter") {
+          classStats.damage += 2;
+          classStats.speed *= 0.85;
+        } else if (player.gameClass === "Runner") {
+          classStats.speed += 2;
+          classStats.maxHp = Math.max(1, classStats.maxHp - 3);
+        } else if (player.gameClass === "Tank") {
+          classStats.maxHp += 10;
+          classStats.speed *= 0.8;
+        } else if (player.gameClass === "Collector") {
+          classStats.damage = Math.max(1, classStats.damage - 1);
+        }
+        scoreText.textContent = `⭐ Score: ${player.score}`;
+        shopBalance.textContent = player.score;
+        currentPlayerBalance = player.score;
+        syncCoinFlipBalance();
+        damageStat.textContent = classStats.damage;
+        hpStat.textContent = `${player.hp}/${classStats.maxHp}`;
+        speedStat.textContent = Number(classStats.speed.toFixed(1));
+        bountyStat.textContent = `🎯 Bounty: ${player.bounty || 0} · Wanted: ${player.wantedLevel || 0}`;
+        if (player.gameClass && classSelect.value !== player.gameClass) {
+          classSelect.value = player.gameClass;
+        }
+        const classDescriptions = {
+          Fighter: "Fighter: +2 damage, 15% slower.",
+          Runner: "Runner: +2 speed, 3 less max HP.",
+          Tank: "Tank: +10 max HP, 20% slower.",
+          Collector: "Collector: double coin value, -1 damage.",
+        };
+        classDescription.textContent = classDescriptions[classSelect.value];
+        crossbowStat.textContent = player.crossbow ? "✅" : "❌";
+        shieldStat.textContent = player.shieldRemainingMs > 0
+          ? formatShieldTime(player.shieldRemainingMs)
+          : "None";
+        arrowsStat.textContent = player.arrows;
+        const nearbyEnemy = activeWorldState?.enemies.some(
+          (enemy) => Math.hypot(player.x - enemy.x, player.y - enemy.y) < 65
+        );
+        attackButton.disabled = !player.upgrades?.sword && !player.crossbow && !nearbyEnemy;
+        attackButton.title = attackButton.disabled
+          ? "Buy a Sword or Crossbow to attack players, or get close to an enemy."
+          : "";
+        trollCommandsButton.disabled = Boolean(player.trollcmds);
+        trollCommandsButton.textContent = player.trollcmds
+          ? "😈 Troll Commands — Owned"
+          : "😈 Troll Commands — 100,000 🪙";
+
+        const upgrades = player.upgrades || {};
+        const ownedItems = {
+          sword: upgrades.sword,
+          heavyCrossbow: upgrades.heavyCrossbow,
+          criticalHit: upgrades.criticalHit,
+          armor: upgrades.armor,
+          regeneration: upgrades.regeneration,
+          lifesteal: upgrades.lifesteal,
+          dash: upgrades.dash,
+          doubleJump: upgrades.doubleJump,
+          teleport: upgrades.teleport,
+          blink: upgrades.blink,
+          wallJump: upgrades.wallJump,
+          secondChance: upgrades.secondChance,
+          shieldUpgrade: upgrades.shieldUpgrade,
+          damageResistance: upgrades.damageResistance,
+          emergencyHeal: upgrades.emergencyHeal,
+          coinMultiplierX2: upgrades.coinMultiplier >= 2,
+          coinMultiplierX3: upgrades.coinMultiplier >= 3,
+          coinMagnet: upgrades.coinMagnet,
+          luckyCoins: upgrades.luckyCoins,
+          dailyBonus: upgrades.dailyBonus,
+          trollCooldownUpgrade: upgrades.trollCooldownUpgrade,
+          trollRangeUpgrade: upgrades.trollRangeUpgrade,
+          randomEventPass: upgrades.randomEventPass,
+          chaosMode: upgrades.chaosMode,
+          goldenName: upgrades.goldenName,
+          vipTag: upgrades.vipTag,
+          secondLife: upgrades.secondLife && !upgrades.secondLifeUsed,
+          crossbow: player.crossbow,
+          trollcmds: player.trollcmds,
+          theButton: upgrades.theButtonUsed,
+          damage: player.damage >= 10,
+          hp: player.maxHp >= 50,
+          speed: player.speed >= 10,
+        };
+        document.querySelectorAll(".shopItem").forEach((button) => {
+          button.disabled = Boolean(ownedItems[button.dataset.item]);
+        });
+
+        const availableAbilities = {
+          dash: upgrades.dash,
+          jump: upgrades.doubleJump || upgrades.wallJump,
+          teleport: upgrades.teleport,
+          blink: upgrades.blink,
+          chaos: upgrades.chaosMode,
+        };
+        let hasAbility = false;
+        abilityButtons.forEach((button) => {
+          button.hidden = !availableAbilities[button.dataset.ability];
+          hasAbility ||= !button.hidden;
+        });
+        abilityControls.classList.toggle("visible", hasAbility);
+
+        const claimedToday = upgrades.dailyBonusClaimedOn === new Date().toISOString().slice(0, 10);
+        dailyBonusButton.hidden = !upgrades.dailyBonus;
+        dailyBonusButton.disabled = !upgrades.dailyBonus || claimedToday;
+        dailyBonusButton.textContent = claimedToday
+          ? "✅ Daily Bonus Claimed"
+          : "🎁 Claim 500 Daily Coins";
+      }
+
+      function renderDailyEvent(event) {
+        if (dailyEventCountdown) {
+          clearInterval(dailyEventCountdown);
+          dailyEventCountdown = null;
+        }
+
+        if (!event) {
+          dailyEventBanner.hidden = true;
+          return;
+        }
+
+        dailyEventBanner.hidden = false;
+        dailyEventTitle.textContent = event.name;
+        const updateRemainingTime = () => {
+          const remainingSeconds = Math.max(0, Math.ceil((event.endsAt - Date.now()) / 1000));
+          const minutes = Math.floor(remainingSeconds / 60);
+          const seconds = remainingSeconds % 60;
+          const jackpotWinners = event.jackpotWinners?.length
+            ? ` Winners: ${event.jackpotWinners.join(", ")}.`
+            : "";
+          dailyEventDetails.textContent =
+            `${event.description} Time left: ${minutes}:${String(seconds).padStart(2, "0")}.${jackpotWinners}`;
+        };
+
+        updateRemainingTime();
+        dailyEventCountdown = setInterval(updateRemainingTime, 1000);
+      }
+
+      function renderAchievements() {
+        const unlockedCount = achievements.filter((achievement) => achievement.unlocked).length;
+        achievementSummary.textContent = `${unlockedCount} / ${achievements.length} unlocked`;
+        achievementList.replaceChildren();
+        achievementProgressElements.clear();
+
+        let category = "";
+        for (const achievement of achievements) {
+          if (category !== achievement.category) {
+            category = achievement.category;
+            const heading = document.createElement("h3");
+            heading.className = "achievementCategory";
+            heading.textContent = category;
+            achievementList.appendChild(heading);
+          }
+
+          const entry = document.createElement("div");
+          entry.className = `achievementEntry${achievement.unlocked ? " unlocked" : ""}`;
+          const title = document.createElement("strong");
+          title.textContent = `${achievement.unlocked ? "✅" : "🔒"} ${achievement.name}`;
+          const description = document.createElement("div");
+          description.textContent = achievement.description;
+          entry.append(title, description);
+
+          if (achievement.goal && !achievement.unlocked) {
+            const progress = document.createElement("div");
+            progress.className = "achievementProgress";
+            progress.textContent = `${Math.min(achievement.progress, achievement.goal)} / ${achievement.goal}`;
+            entry.appendChild(progress);
+            achievementProgressElements.set(achievement.id, progress);
+          }
+          achievementList.appendChild(entry);
+        }
+      }
+
+      function setupSocket() {
+        socket.on("achievements", (nextAchievements) => {
+          achievements = nextAchievements;
+          if (achievementPanel.style.display === "block") {
+            renderAchievements();
+          }
+        });
+
+        socket.on("achievementProgress", ({ id, progress }) => {
+          const achievement = achievements.find((entry) => entry.id === id);
+          if (achievement) {
+            achievement.progress = progress;
+            const progressElement = achievementProgressElements.get(id);
+            if (progressElement && achievement.goal) {
+              progressElement.textContent = `${Math.min(progress, achievement.goal)} / ${achievement.goal}`;
+            }
+          }
+        });
+
+        socket.on("achievementUnlocked", ({ id, name }) => {
+          const achievement = achievements.find((entry) => entry.id === id);
+          if (achievement) {
+            achievement.unlocked = true;
+            if (achievementPanel.style.display === "block") {
+              renderAchievements();
+            }
+          }
+          addChatMessage("ACHIEVEMENT", `Unlocked: ${name}!`);
+        });
+
+        socket.on("arenaStatus", ({ queued, active }) => {
+          arenaButton.textContent = `🏟️ Join Arena (${queued} queued${active ? `, ${active} fighting` : ""})`;
+        });
+
+        socket.on("dailyEvent", renderDailyEvent);
+
+        socket.on("worldEvents", renderWorldState);
+
+        socket.on("players", (players) => {
+          latestPlayers = players;
+          const onlinePlayers = Object.values(players)
+            .filter((player) => player.connected)
+            .sort((a, b) => b.score - a.score);
+          playerNameDecorations.clear();
+          onlinePlayers.forEach((player) => {
+            playerNameDecorations.set(player.name.toLowerCase(), {
+              vipTag: player.upgrades?.vipTag,
+              goldenName: player.upgrades?.goldenName,
+            });
+          });
+          const nextLeaderboardState = JSON.stringify(
+            onlinePlayers.map((player) => [
+              player.id,
+              player.name,
+              player.score,
+              player.team,
+              player.upgrades?.vipTag,
+              player.upgrades?.goldenName,
+              player.bounty,
+              player.wantedLevel,
+            ])
+          );
+
+          if (nextLeaderboardState !== leaderboardState) {
+            leaderboardState = nextLeaderboardState;
+            leaderboard.innerHTML = "";
+
+            onlinePlayers.forEach((player, index) => {
+              const entry = document.createElement("div");
+              entry.className = "leaderboardEntry";
+
+              const name = document.createElement("span");
+              name.className = "leaderboardName";
+              const upgrades = player.upgrades || {};
+              name.textContent = `${index + 1}. ${upgrades.vipTag ? "[VIP] " : ""}${player.name}${player.wantedLevel ? ` 🎯${player.bounty}` : ""}${player.team ? ` [${player.team.toUpperCase()}]` : ""}`;
+              name.style.color = upgrades.goldenName
+                ? "#ffd700"
+                : player.team === "blue" ? "#60a5fa" : player.team === "red" ? "#f87171" : "";
+
+              const score = document.createElement("span");
+              score.className = "leaderboardScore";
+              score.textContent = `${player.score} ⭐`;
+
+              entry.appendChild(name);
+              entry.appendChild(score);
+              leaderboard.appendChild(entry);
+            });
+          }
+
+          for (const [id, player] of Object.entries(players)) {
+            let elements = playerElements.get(id);
+
+            if (!elements) {
+              const element = document.createElement("div");
+              element.className = "player";
+              element.style.left = "0";
+              element.style.top = "0";
+              const nameElement = document.createElement("div");
+              nameElement.className = "playerName";
+              nameElement.style.left = "0";
+              nameElement.style.top = "0";
+              game.append(element, nameElement);
+              elements = { element, nameElement };
+              playerElements.set(id, elements);
+            }
+
+            elements.element.style.background = player.team === "blue"
+              ? "#2563eb"
+              : player.team === "red"
+                ? "#dc2626"
+                : id === playerId
+                  ? "cyan"
+                  : "red";
+            elements.element.style.borderColor = id === playerId ? "cyan" : "white";
+            elements.element.style.opacity = id !== playerId && (player.powerUpUntil?.invisibility || 0) > Date.now()
+              ? "0.08"
+              : "1";
+            elements.element.style.transform =
+              `translate3d(${player.x}px, ${player.y}px, 0) translate(-50%, -50%)`;
+            elements.nameElement.style.transform =
+              `translate3d(${player.x}px, ${player.y}px, 0) translate(-50%, -100%)`;
+            const upgrades = player.upgrades || {};
+            const displayedName = `${upgrades.vipTag ? "[VIP] " : ""}${player.name}${player.wantedLevel ? ` 🎯${player.bounty}` : ""}${player.team ? ` [${player.team.toUpperCase()}]` : ""}`;
+            if (elements.nameElement.textContent !== displayedName) {
+              elements.nameElement.textContent = displayedName;
+            }
+            elements.nameElement.classList.toggle("goldenName", Boolean(upgrades.goldenName));
+            elements.nameElement.style.color = upgrades.goldenName
+              ? "#ffd700"
+              : player.team === "blue" ? "#60a5fa" : player.team === "red" ? "#f87171" : "";
+
+            if (id === playerId) {
+              updatePlayerStats(player);
+              updateCamera(player.x, player.y);
+            }
+          }
+          if (activeWorldState) renderWorldState(activeWorldState);
+
+          for (const [id, elements] of playerElements) {
+            if (!players[id]) {
+              elements.element.remove();
+              elements.nameElement.remove();
+              playerElements.delete(id);
+            }
+          }
+        });
+
+        socket.on("coins", (coins) => {
+          document.querySelectorAll(".coin").forEach((element) => element.remove());
+
+          for (const id in coins) {
+            const coin = coins[id];
+            const element = document.createElement("div");
+            element.className = "coin";
+            element.style.left = `${coin.x}px`;
+            element.style.top = `${coin.y}px`;
+            game.appendChild(element);
+          }
+        });
+
+        socket.on("playerMoved", (updates) => {
+          for (const { id, x, y } of updates) {
+            const elements = playerElements.get(id);
+            if (!elements) {
+              continue;
+            }
+
+            elements.element.style.transform =
+              `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+            elements.nameElement.style.transform =
+              `translate3d(${x}px, ${y}px, 0) translate(-50%, -100%)`;
+
+            if (id === playerId) {
+              updateCamera(x, y);
+            }
+          }
+        });
+
+        socket.on("shieldTime", (milliseconds) => {
+          shieldStat.textContent = milliseconds > 0
+            ? formatShieldTime(milliseconds)
+            : "None";
+        });
+
+        socket.on("trollEffect", ({ effect, duration, value }) => {
+          if (effect === "rain") {
+            const messages = [
+              "A wild duck appears!",
+              "The floor is made of soup!",
+              "Your shoes are now legendary!",
+              "A tiny wizard says hello!",
+              "Breaking news: coins are round!",
+            ];
+            for (let index = 0; index < 5; index++) {
+              setTimeout(() => addChatMessage("TROLL", messages[Math.floor(Math.random() * messages.length)]), index * 450);
+            }
+            return;
+          }
+
+          if (effect === "message" || effect === "jumpscare") {
+            const existingTimer = trollEffectTimers.get("overlay");
+            if (existingTimer) {
+              clearTimeout(existingTimer);
+            }
+            trollOverlay.textContent = effect === "jumpscare"
+              ? "⚠ SYSTEM ERROR ⚠"
+              : value;
+            trollOverlay.style.display = "flex";
+            const timer = setTimeout(() => {
+              trollOverlay.style.display = "none";
+              trollEffectTimers.delete("overlay");
+            }, duration);
+            trollEffectTimers.set("overlay", timer);
+            return;
+          }
+
+          if (effect === "confuse") {
+            addChatMessage("TROLL", "Your controls are temporarily scrambled!");
+            return;
+          }
+
+          const element = playerElements.get(playerId)?.element;
+          if (!element) {
+            return;
+          }
+
+          const className = {
+            giant: "trollGiant",
+            tiny: "trollTiny",
+            spin: "trollSpin",
+            freeze: "trollFrozen",
+          }[effect];
+          if (!className) {
+            return;
+          }
+
+          element.classList.add(className);
+          const existingTimer = trollEffectTimers.get(effect);
+          if (existingTimer) {
+            clearTimeout(existingTimer);
+          }
+          trollEffectTimers.set(effect, setTimeout(() => {
+            element.classList.remove(className);
+            trollEffectTimers.delete(effect);
+          }, duration));
+        });
+
+        socket.on("chat", (data) => {
+          addChatMessage(data.name, data.message);
+        });
+
+        function addChatMessage(name, message) {
+          const messageElement = document.createElement("div");
+          messageElement.className = "chatMessage";
+
+          const nameElement = document.createElement("span");
+          nameElement.className = "chatName";
+          const decoration = playerNameDecorations.get(name.toLowerCase());
+          nameElement.textContent = `${decoration?.vipTag ? "[VIP] " : ""}${name}: `;
+          if (decoration?.goldenName) {
+            nameElement.style.color = "#ffd700";
+          }
+
+          const textElement = document.createElement("span");
+          textElement.textContent = message;
+
+          messageElement.appendChild(nameElement);
+          messageElement.appendChild(textElement);
+          chatMessages.appendChild(messageElement);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        document.addEventListener("keydown", (event) => {
+          if (document.activeElement === chatInput) {
+            return;
+          }
+          const key = event.key.toLowerCase();
+          if (key === "r") {
+            if (!event.repeat) {
+              attack();
+            }
+            return;
+          }
+          const abilityByKey = {
+            q: "dash",
+            " ": "jump",
+            t: "teleport",
+            b: "blink",
+            c: "chaos",
+          };
+          if (abilityByKey[key]) {
+            event.preventDefault();
+            if (!event.repeat) {
+              activateAbility(abilityByKey[key]);
+            }
+            return;
+          }
+          keys[key] = true;
+        });
+
+        document.addEventListener("keyup", (event) => {
+          keys[event.key.toLowerCase()] = false;
+        });
+
+
+
+
+function sendChat() {
+          const message = chatInput.value.trim();
+          if (!message) {
+            return;
+          }
+          socket.emit("chat", message);
+          chatInput.value = "";
+          chatInput.focus();
+        }
+
+        chatSend.addEventListener("click", sendChat);
+        chatInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            sendChat();
+          }
+        });
+
+        setInterval(() => {
+          if (!socket || !socket.connected) {
+            return;
+          }
+
+          let x = 0;
+          let y = 0;
+
+          if (keys.w) y -= 5;
+          if (keys.s) y += 5;
+          if (keys.a) x -= 5;
+          if (keys.d) x += 5;
+
+          if (x !== 0 || y !== 0) {
+            const directionLength = Math.hypot(x, y);
+            lastMovementDirection = { x: x / directionLength, y: y / directionLength };
+            socket.emit("move", { x, y });
+          }
+        }, 30);
+      }
+
+      async function login() {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          authMessage.textContent = data.message;
+          return;
+        }
+
+        localStorage.setItem("loginToken", data.token);
+        localStorage.setItem("accountUsername", data.username);
+        authScreen.style.display = "none";
+
+        socket = io({
+          auth: {
+            playerId,
+            playerName: data.username,
+            token: data.token,
+          },
+        });
+        setupSocket();
+      }
+
+      async function register() {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+
+        const response = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
+
+        const data = await response.json();
+        authMessage.textContent = data.message;
+
+        if (data.success) {
+          passwordInput.value = "";
+        }
+      }
+
+      loginButton.addEventListener("click", login);
+      registerButton.addEventListener("click", register);
+      attackButton.addEventListener("click", attack);
+      classSelect.addEventListener("change", () => {
+        if (!socket || !socket.connected) {
+          classSelect.value = "Fighter";
+          authMessage.textContent = "Log in to choose a class.";
+          return;
+        }
+        socket.emit("selectClass", classSelect.value, (result) => {
+          addChatMessage("SERVER", result.message);
+          if (!result.success) classSelect.value = latestPlayers[playerId]?.gameClass || "Fighter";
+        });
+      });
+      abilityButtons.forEach((button) => {
+        button.addEventListener("click", () => activateAbility(button.dataset.ability));
+      });
+      dailyBonusButton.addEventListener("click", () => {
+        if (!socket || !socket.connected) {
+          shopMessage.textContent = "Connect to the game before claiming your daily bonus.";
+          return;
+        }
+        dailyBonusButton.disabled = true;
+        socket.emit("claimDailyBonus", (response) => {
+          shopMessage.textContent = response.message;
+          if (response.success) {
+            currentPlayerBalance = response.balance;
+            scoreText.textContent = `⭐ Score: ${response.balance}`;
+            shopBalance.textContent = response.balance;
+            dailyBonusButton.textContent = "✅ Daily Bonus Claimed";
+          } else {
+            dailyBonusButton.disabled = false;
+          }
+        });
+      });
+      window.addEventListener("pointermove", (event) => {
+        if (
+          event.pointerType === "mouse" &&
+          !event.target.closest("#abilityControls, #chat, #shopPanel, #coinFlipPanel, #achievementPanel, #touchControls, button, input")
+        ) {
+          pointerAimDirection = {
+            x: event.clientX - window.innerWidth / 2,
+            y: event.clientY - window.innerHeight / 2,
+          };
+        }
+      });
+      document.querySelectorAll("#touchControls [data-direction]").forEach((button) => {
+        const direction = button.dataset.direction;
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          button.setPointerCapture(event.pointerId);
+          keys[direction] = true;
+        });
+        const stopMoving = () => {
+          keys[direction] = false;
+        };
+        button.addEventListener("pointerup", stopMoving);
+        button.addEventListener("pointercancel", stopMoving);
+        button.addEventListener("lostpointercapture", stopMoving);
+      });
+      window.addEventListener("blur", () => {
+        for (const key of Object.keys(keys)) {
+          keys[key] = false;
+        }
+      });
+      const shopButton =
+    document.getElementById("shopButton");
+const coinFlipButton = document.getElementById("coinFlipButton");
+const coinFlipPanel = document.getElementById("coinFlipPanel");
+const coinFlipClose = document.getElementById("coinFlipClose");
+const coinFlipDisk = document.getElementById("coinFlipDisk");
+const coinFlipResult = document.getElementById("coinFlipResult");
+const coinFlipAction = document.getElementById("coinFlipAction");
+const coinFlipBet = document.getElementById("coinFlipBet");
+const coinFlipBalance = document.getElementById("coinFlipBalance");
+const coinFlipChoices = document.querySelectorAll(".coinFlipChoice");
+
+const shopPanel =
+    document.getElementById("shopPanel");
+
+const closeShop =
+    document.getElementById("closeShop");
+const shopBalance = document.getElementById("shopBalance");
+const shopMessage = document.getElementById("shopMessage");
+let selectedCoinSide = "heads";
+let currentPlayerBalance = 0;
+let coinFlipInProgress = false;
+
+function syncCoinFlipBalance() {
+    const maxBet = Math.max(1, currentPlayerBalance || 0);
+    coinFlipBet.max = String(maxBet);
+    const currentValue = Number(coinFlipBet.value);
+    const safeValue = Number.isFinite(currentValue) && currentValue > 0 ? currentValue : maxBet;
+    coinFlipBet.value = String(Math.min(safeValue, maxBet));
+    coinFlipBalance.textContent = `Balance: ${currentPlayerBalance} 🪙`;
+}
+
+function setCoinFlipSelection(side) {
+    selectedCoinSide = side;
+    coinFlipChoices.forEach((button) => {
+        const isSelected = button.dataset.side === side;
+        button.classList.toggle("selected", isSelected);
+    });
+}
+
+function openCoinFlip() {
+    if (coinFlipInProgress) {
+        return;
+    }
+    if (!socket || !socket.connected) {
+        coinFlipResult.textContent = "Log in to bet coins.";
+        return;
+    }
+    syncCoinFlipBalance();
+    coinFlipPanel.classList.add("visible");
+    coinFlipDisk.classList.remove("heads", "tails");
+    coinFlipDisk.classList.add(selectedCoinSide === "heads" ? "heads" : "tails");
+    coinFlipResult.textContent = "Pick a side and flip!";
+}
+
+function closeCoinFlip() {
+    if (coinFlipInProgress) {
+        return;
+    }
+    coinFlipPanel.classList.remove("visible");
+}
+
+function flipCoin() {
+    if (!socket || !socket.connected) {
+        coinFlipResult.textContent = "Log in to bet coins.";
+        return;
+    }
+
+    const betAmount = Number(coinFlipBet.value);
+    if (!Number.isInteger(betAmount) || betAmount <= 0) {
+        coinFlipResult.textContent = "Enter a valid bet amount.";
+        return;
+    }
+    if (betAmount > currentPlayerBalance) {
+        coinFlipResult.textContent = `You only have ${currentPlayerBalance} 🪙.`;
+        return;
+    }
+    if (coinFlipInProgress) {
+        return;
+    }
+
+    coinFlipInProgress = true;
+    coinFlipAction.disabled = true;
+    coinFlipAction.textContent = "Flipping...";
+    coinFlipClose.disabled = true;
+    coinFlipResult.textContent = `Flipping ${betAmount} 🪙 on ${selectedCoinSide}...`;
+
+    const finishFlip = (message) => {
+        coinFlipInProgress = false;
+        coinFlipAction.disabled = false;
+        coinFlipAction.textContent = "Flip the coin";
+        coinFlipClose.disabled = false;
+        coinFlipResult.textContent = message;
+    };
+
+    socket.timeout(5000).emit(
+        "coinFlip",
+        { side: selectedCoinSide, amount: betAmount },
+        (error, response) => {
+            if (error) {
+                finishFlip("The server did not respond. Your bet was not confirmed.");
+                return;
+            }
+
+            if (!response?.success) {
+                finishFlip(response?.message || "Coin flip failed.");
+                return;
+            }
+
+            if (response.result !== "heads" && response.result !== "tails") {
+                finishFlip("The server returned an invalid coin result.");
+                return;
+            }
+
+            const outcome = response.result;
+            currentPlayerBalance = Number(response.balance ?? currentPlayerBalance);
+            syncCoinFlipBalance();
+            const startingSide = coinFlipDisk.classList.contains("tails") ? "tails" : "heads";
+            const startRotation = startingSide === "tails" ? 180 : 0;
+            const halfTurns = outcome === startingSide ? 10 : 11;
+            coinFlipDisk.classList.remove("heads", "tails");
+            const animation = coinFlipDisk.animate(
+                [
+                    { transform: `rotateY(${startRotation}deg) rotateX(0deg) scale(1)` },
+                    { transform: `rotateY(${startRotation + halfTurns * 180}deg) rotateX(360deg) scale(1)` },
+                ],
+                {
+                    duration: 1200,
+                    easing: "cubic-bezier(0.18, 0.89, 0.32, 1.28)",
+                    fill: "forwards",
+                }
+            );
+
+            animation.onfinish = () => {
+                coinFlipDisk.classList.add(outcome);
+                animation.cancel();
+                finishFlip(response.message);
+            };
+        }
+    );
+}
+
+achievementsButton.addEventListener("click", () => {
+    renderAchievements();
+    achievementPanel.style.display = "block";
+});
+achievementClose.addEventListener("click", () => {
+    achievementPanel.style.display = "none";
+});
+arenaButton.addEventListener("click", () => {
+    if (socket && socket.connected) {
+        socket.emit("arenaQueue");
+    }
+});
+
+coinFlipButton.addEventListener("click", openCoinFlip);
+coinFlipClose.addEventListener("click", closeCoinFlip);
+coinFlipChoices.forEach((button) => {
+    button.addEventListener("click", () => setCoinFlipSelection(button.dataset.side));
+});
+coinFlipAction.addEventListener("click", flipCoin);
+
+shopButton.addEventListener(
+    "click",
+    () => {
+        shopPanel.style.display = "block";
+    }
+);
+document.querySelectorAll(".shopItem").forEach((button) => {
+    button.addEventListener("click", () => {
+        if (!socket || !socket.connected) {
+            shopMessage.textContent = "Connect to the game before buying.";
+            return;
+        }
+
+        shopMessage.textContent = "Processing purchase...";
+        socket.emit("buyItem", button.dataset.item, (result) => {
+            shopMessage.textContent = result.message;
+        });
+    });
+});
+closeShop.addEventListener(
+    "click",
+    () => {
+        shopPanel.style.display = "none";
+    }
+);
+    </script>
+  </body>
+</html>
